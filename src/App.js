@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
 import { 
   getFirestore, 
   collection, 
@@ -28,29 +29,43 @@ import {
   ChevronRight, 
   ArrowLeftRight, 
   User, 
-  Building2,
-  Calendar,
-  Download,
-  Filter,
-  Loader2,
-  X,
-  AlertCircle,
-  Save,
-  Trash2,
-  EyeOff,
-  Eye,
-  Split,
-  Layers,
-  Target,
-  ShieldCheck,
-  Lock
+  Building2, 
+  Calendar, 
+  Download, 
+  Filter, 
+  Loader2, 
+  X, 
+  AlertCircle, 
+  Save, 
+  Trash2, 
+  EyeOff, 
+  Eye, 
+  Split, 
+  Layers, 
+  Target, 
+  ShieldCheck, 
+  Lock, 
+  FileSpreadsheet
 } from 'lucide-react';
 
-// Firebase Configuration
-const firebaseConfig = JSON.parse(__initial_auth_token ? "{}" : __firebase_config);
-const app = initializeApp(JSON.parse(__firebase_config));
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBOixLvmuEUCb-Tm-GlfszrrHWa8KjL5a0",
+  authDomain: "sjsibt.firebaseapp.com",
+  projectId: "sjsibt",
+  storageBucket: "sjsibt.firebasestorage.app",
+  messagingSenderId: "750662306150",
+  appId: "1:750662306150:web:48c2b2d798f0f6431920a7",
+  measurementId: "G-C7VKTZ5W5D"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// Use environment appId if available, else default for Firestore path structure (Rule 1)
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'pharmacy-ibt-sys';
 
 // Constants
@@ -109,13 +124,23 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [pdfLibLoaded, setPdfLibLoaded] = useState(false);
+  const [xlsxLibLoaded, setXlsxLibLoaded] = useState(false);
 
+  // Load Dependencies from CDN
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-    script.async = true;
-    script.onload = () => setPdfLibLoaded(true);
-    document.body.appendChild(script);
+    // jsPDF
+    const jspdfScript = document.createElement('script');
+    jspdfScript.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    jspdfScript.async = true;
+    jspdfScript.onload = () => setPdfLibLoaded(true);
+    document.body.appendChild(jspdfScript);
+
+    // SheetJS (Excel)
+    const xlsxScript = document.createElement('script');
+    xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    xlsxScript.async = true;
+    xlsxScript.onload = () => setXlsxLibLoaded(true);
+    document.body.appendChild(xlsxScript);
   }, []);
 
   useEffect(() => {
@@ -329,6 +354,56 @@ export default function App() {
     doc.save(`IBT_${ibt.refNumber}_Triplicate.pdf`);
   };
 
+  const exportToExcel = () => {
+    if (!xlsxLibLoaded || !window.XLSX) {
+      showNotification("Excel library is still loading...", "error");
+      return;
+    }
+
+    try {
+      const flattenedData = [];
+      ibts.forEach(ibt => {
+        const isActuallyCompleted = ibt.senderPosAdjusted && ibt.receiverPosRecorded && ibt.adminRecorded;
+        
+        ibt.items.forEach(item => {
+          flattenedData.push({
+            'IBT Reference': ibt.refNumber,
+            'Request Date': new Date(ibt.requestDate).toLocaleDateString(),
+            'Logistic Status': ibt.status,
+            'Destination (From)': ibt.requestByBranch,
+            'Source (To)': ibt.targetBranch,
+            'Requesting Staff': ibt.requestByStaff,
+            'Drug Name': item.name,
+            'Product Code': item.code,
+            'Batch #': item.batch || 'N/A',
+            'Expiry Date': item.expiry || 'N/A',
+            'Quantity': item.quantity,
+            'Unit': item.unit || 'tablet',
+            'Unit Price': item.price || 0,
+            'Line Total': (item.quantity || 0) * (item.price || 0),
+            'Sender POS Adjusted': ibt.senderPosAdjusted ? 'YES' : 'NO',
+            'Receiver POS Recorded': ibt.receiverPosRecorded ? 'YES' : 'NO',
+            'Admin Recorded': ibt.adminRecorded ? 'YES' : 'NO',
+            'Fully Completed': isCompleted ? 'YES' : 'NO'
+          });
+        });
+      });
+
+      const worksheet = window.XLSX.utils.json_to_sheet(flattenedData);
+      const workbook = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(workbook, worksheet, "IBT Data Backup");
+
+      const max_width = flattenedData.reduce((w, r) => Math.max(w, r['Drug Name']?.length || 0), 20);
+      worksheet['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: max_width }, { wch: 15 }];
+
+      window.XLSX.writeFile(workbook, `Pharmacy_IBT_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+      showNotification("Excel backup generated successfully!");
+    } catch (err) {
+      console.error(err);
+      showNotification("Failed to generate Excel file.", "error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3 sm:px-8">
@@ -374,6 +449,7 @@ export default function App() {
             onUpdate={handleUpdateIBT} 
             onDelete={handleDeleteIBT}
             onPrint={generatePDF} 
+            onExportExcel={exportToExcel}
           />
         ) : (
           <NewRequestForm 
@@ -394,7 +470,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ ibts, loading, onUpdate, onDelete, onPrint }) {
+function Dashboard({ ibts, loading, onUpdate, onDelete, onPrint, onExportExcel }) {
   const [filterBranch, setFilterBranch] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [hideCompleted, setHideCompleted] = useState(false);
@@ -491,6 +567,13 @@ function Dashboard({ ibts, loading, onUpdate, onDelete, onPrint }) {
               {hideCompleted ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               {hideCompleted ? 'Showing All' : 'Hide Completed'}
             </button>
+            <button 
+              onClick={onExportExcel}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold transition-all hover:bg-green-700 shadow-md shadow-green-100"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export Excel
+            </button>
           </div>
         </div>
       </div>
@@ -553,7 +636,6 @@ function Dashboard({ ibts, loading, onUpdate, onDelete, onPrint }) {
                 {selectedIbtId === ibt.id && (
                   <div className="border-t border-slate-100 bg-slate-50/40 p-4 lg:p-6 animate-in slide-in-from-top-2">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
-                       {/* Admin Status Checks - SMALLER */}
                        <div className="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 h-fit">
                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-1">
                            <FileText className="h-3 w-3" /> Admin Checks
@@ -594,7 +676,6 @@ function Dashboard({ ibts, loading, onUpdate, onDelete, onPrint }) {
                          </label>
                        </div>
 
-                       {/* Stock Entry Table - LARGER */}
                        <div className="lg:col-span-3 space-y-3">
                          <div className="flex justify-between items-center px-1">
                             <h4 className="text-xs font-bold text-slate-700 flex items-center gap-2">
