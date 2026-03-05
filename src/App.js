@@ -66,7 +66,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Use environment appId if available, else default for Firestore path structure (Rule 1)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'pharmacy-ibt-sys';
+const appId = process.env.REACT_APP_ID || 'pharmacy-ibt-sys';
 
 // Constants
 const LOGISTIC_STATUSES = ['Requested', 'Accepted', 'Packed', 'Dispatched', 'Received'];
@@ -146,11 +146,7 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        await signInAnonymously(auth);
       } catch (err) {
         console.error("Auth error:", err);
       }
@@ -384,7 +380,8 @@ export default function App() {
             'Sender POS Adjusted': ibt.senderPosAdjusted ? 'YES' : 'NO',
             'Receiver POS Recorded': ibt.receiverPosRecorded ? 'YES' : 'NO',
             'Admin Recorded': ibt.adminRecorded ? 'YES' : 'NO',
-            'Fully Completed': isCompleted ? 'YES' : 'NO'
+const isCompleted = ibt.status === 'Completed';            
+'Fully Completed': isCompleted ? 'YES' : 'NO'
           });
         });
       });
