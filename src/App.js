@@ -15,14 +15,12 @@ import {
 import { 
   getAuth, 
   signInAnonymously, 
-  signInWithCustomToken, 
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
   Plus, 
   Search, 
   ClipboardList, 
-  Truck, 
   CheckCircle, 
   FileText, 
   Package, 
@@ -32,9 +30,7 @@ import {
   Building2, 
   Calendar, 
   Download, 
-  Filter, 
   Loader2, 
-  X, 
   AlertCircle, 
   Save, 
   Trash2, 
@@ -42,9 +38,7 @@ import {
   Eye, 
   Split, 
   Layers, 
-  Target, 
   ShieldCheck, 
-  Lock, 
   FileSpreadsheet
 } from 'lucide-react';
 
@@ -61,7 +55,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+// Analytics removed for CI compliance
 const auth = getAuth(app);
 const db = getFirestore(app);
 
@@ -380,7 +374,8 @@ export default function App() {
             'Sender POS Adjusted': ibt.senderPosAdjusted ? 'YES' : 'NO',
             'Receiver POS Recorded': ibt.receiverPosRecorded ? 'YES' : 'NO',
             'Admin Recorded': ibt.adminRecorded ? 'YES' : 'NO',
-            'Fully Completed': ibt.status === 'Completed' ? 'YES' : 'NO'
+const isCompleted = ibt.status === 'Completed';            
+'Fully Completed': isCompleted ? 'YES' : 'NO'
           });
         });
       });
