@@ -380,8 +380,7 @@ export default function App() {
             'Sender POS Adjusted': ibt.senderPosAdjusted ? 'YES' : 'NO',
             'Receiver POS Recorded': ibt.receiverPosRecorded ? 'YES' : 'NO',
             'Admin Recorded': ibt.adminRecorded ? 'YES' : 'NO',
-const isCompleted = ibt.status === 'Completed';            
-'Fully Completed': isCompleted ? 'YES' : 'NO'
+            'Fully Completed': ibt.status === 'Completed' ? 'YES' : 'NO'
           });
         });
       });
